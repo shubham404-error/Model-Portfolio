@@ -141,9 +141,13 @@ def main_page():
         st.stop()
 
     # Extract cleaned tickers and append .NS
-    raw_tickers = edited_df["Ticker"].dropna().astype(str).tolist()
-    ticker_list = [t.strip().upper() + ".NS" for t in raw_tickers if t.strip()]
-    quantities = edited_df["Quantity"].dropna().values
+    clean_df = edited_df.dropna(subset=["Ticker", "Quantity"]).copy()
+    clean_df["Ticker"] = clean_df["Ticker"].astype(str).str.strip().str.upper()
+    grouped = clean_df.groupby("Ticker", as_index=False)["Quantity"].sum()
+    
+    raw_tickers = grouped["Ticker"].tolist()
+    ticker_list = [t + ".NS" for t in raw_tickers if t]
+    quantities = grouped["Quantity"].values
     
     if len(ticker_list) == 0:
         st.error("Please enter at least one valid ticker.")
@@ -226,7 +230,7 @@ def main_page():
             return -portfolio_performance(w, mean_returns, cov_matrix, risk_free_rate)[2]
             
         constraints = ({"type": "eq", "fun": lambda x: np.sum(x) - 1})
-        bounds = tuple((0, 0.5) for _ in range(num_assets))
+        bounds = tuple((0, min(1.0, max(0.5, 1.0/num_assets + 0.2))) for _ in range(num_assets))
         init_guess = np.array([1/num_assets] * num_assets)
         
         opt_result = minimize(
