@@ -359,25 +359,69 @@ def main_page():
     
 
 def guide_page():
-    st.title("User Guide: Model Portfolio Terminal")
-    st.markdown("""
-    Welcome to the Model Portfolio Terminal. This application uses quantitative optimization to help you build the most efficient portfolio possible based on your actual holdings.
+    st.markdown("<h1 style='text-align: center; margin-bottom: 2rem;'>CapitalSense User Guide</h1>", unsafe_allow_html=True)
     
-    ### 🎯 Intended Outputs
-    - **Optimized Weights:** The exact percentage allocation for each stock that mathematically maximizes your risk-adjusted return (Sharpe Ratio).
-    - **CapitalSense DVM Score:** An aggregated proprietary score of your portfolio's Durability, Valuation, and Momentum.
-    - **Expected Return & Volatility:** Forward-looking mathematical estimates of the portfolio's performance profile.
-    - **Efficient Frontier:** A visual plot showing the optimal balance between risk and reward.
+    st.markdown("<div style='text-align: center; color: #a0a0a0; margin-bottom: 3rem;'>Learn how to use the quantitative engine to analyze and optimize your holdings.</div>", unsafe_allow_html=True)
+
+    # 1. Quick Start Section
+    st.markdown("### 🚀 Quick Start")
+    with st.container(border=True):
+        col1, col2, col3 = st.columns(3)
+        with col1:
+            st.markdown("<h3 style='text-align: center;'>1️⃣ Input Holdings</h3>", unsafe_allow_html=True)
+            st.markdown("Go to the **Portfolio Builder** tab. Enter your actual stock symbols (e.g. `RELIANCE`), the quantity you own, and the average buy price. The engine automatically handles NSE formatting.")
+        with col2:
+            st.markdown("<h3 style='text-align: center;'>2️⃣ Set Timeline</h3>", unsafe_allow_html=True)
+            st.markdown("Select a **Historical Start Date**. This date is critical: the engine uses historical data from this date to calculate asset covariance and volatility.")
+        with col3:
+            st.markdown("<h3 style='text-align: center;'>3️⃣ Optimize</h3>", unsafe_allow_html=True)
+            st.markdown("Click **Calculate Optimal Portfolio**. The engine will fetch live market data, score your portfolio, and run Modern Portfolio Theory math to find maximum efficiency.")
+
+    st.markdown("<br>", unsafe_allow_html=True)
+
+    # 2. Outputs vs Inputs
+    col_in, col_out = st.columns(2)
     
-    ### 📥 Required Inputs
-    - **Tickers:** Enter the raw NSE stock symbols (e.g., RELIANCE, TCS). The engine will automatically format them for the backend.
-    - **Quantity & Price:** Enter the number of shares you own and your average buy price. The app computes your actual current portfolio weights automatically based on live market prices.
-    - **Start Date:** The historical date from which the engine calculates covariance and mean returns.
-    
-    ### 💡 Best Practices
-    - Always click **Calculate Optimal Portfolio** after changing inputs. The app intentionally does not auto-calculate on every keystroke to save your computational bandwidth.
-    - Compare the Current vs Optimized pie chart to see how far your true holdings are from the mathematical ideal.
-    """)
+    with col_in:
+        st.markdown("### 📥 What You Provide")
+        with st.container(border=True):
+            st.info("**Tickers (Raw NSE Symbols)**\n\nNo need to add `.NS`. Just type the symbol. The engine cleans the input automatically.")
+            st.info("**Quantity & Avg Buy Price**\n\nThe app calculates your *True Current Weight* by multiplying your quantity by the live market price.")
+            st.info("**Start Date**\n\nDetermines the lookback period for risk calculations.")
+
+    with col_out:
+        st.markdown("### 🎯 What You Get")
+        with st.container(border=True):
+            st.success("**Max Sharpe Allocation**\n\nThe exact mathematical weights required to maximize return for your given risk level.")
+            st.success("**CapitalSense DVM Score**\n\nA proprietary blend of Durability, Valuation, and Momentum scores for your specific mix of assets.")
+            st.success("**Performance & Risk Metrics**\n\nExpected Annual Return, Annualized Volatility, and a historical growth benchmark against the NIFTY 50.")
+
+    st.markdown("<br>", unsafe_allow_html=True)
+
+    # 3. Deep Dive Expanders
+    st.markdown("### 🧠 How the Engine Works")
+    with st.expander("The Mathematics of the Optimal Portfolio"):
+        st.markdown("""
+        The engine uses **Modern Portfolio Theory (MPT)** and specifically the `scipy.optimize` SLSQP solver to maximize the **Sharpe Ratio** of your portfolio. 
+        
+        It looks at the historical covariance matrix (how the stocks move together) and their mean returns, and attempts to find a combination of weights that maximizes returns while mathematically minimizing volatility.
+        """)
+        
+    with st.expander("Understanding the DVM Score"):
+        st.markdown("""
+        The **CapitalSense DVM Score** reads from an offline, proprietary SQLite database of corporate metrics.
+        
+        - **Durability:** A measure of the company's financial health and moat.
+        - **Valuation:** How expensive the stock is relative to historical averages and peers.
+        - **Momentum:** The technical price trend of the asset.
+        
+        Your portfolio's overall score is the weighted average of these underlying asset scores.
+        """)
+        
+    with st.expander("Why doesn't the app auto-calculate when I type?"):
+        st.markdown("""
+        **To protect your computational bandwidth and avoid API rate limits.** Fetching live data from Yahoo Finance for a dozen stocks across several years is a heavy operation. By gating the calculation behind a button, you can comfortably build your entire portfolio table before triggering the expensive math engine.
+        """)
 
 pages = {
     "Start": [
