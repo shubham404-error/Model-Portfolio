@@ -10,7 +10,8 @@ import os
 
 st.set_page_config(
     page_title="CapitalSense Portfolio Terminal",
-    layout="wide"
+    layout="wide",
+    initial_sidebar_state="collapsed"
 )
 
 st.markdown("""
@@ -36,15 +37,17 @@ h3 { font-size: clamp(18px, 3vw, 24px) !important; }
 }
 
 div[data-testid="stMetric"] {
-    background-color: #1e1e1e;
+    background-color: #1a1a1a;
     border: 1px solid #333;
-    border-radius: 0.5rem;
-    padding: 1rem;
-    box-shadow: 0 1px 2px 0 rgba(0, 0, 0, 0.05);
+    border-radius: 12px;
+    padding: 1.5rem;
+    box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1);
 }
 
 div[data-testid="stMetricValue"] {
     color: #4C7766 !important;
+    font-family: 'Clash Display', sans-serif !important;
+    font-weight: 600;
 }
 
 .css-pill {
@@ -59,84 +62,93 @@ div[data-testid="stMetricValue"] {
     margin-bottom: 10px;
     border: 1px solid #444;
 }
-.css-pill.status-bull { background-color: #0f5132; color: #d1e7dd; border-color: #badbcc; }
-.css-pill.status-bear { background-color: #842029; color: #f8d7da; border-color: #f5c2c7; }
+.status-bull { background-color: #0f5132; color: #d1e7dd; border-color: #badbcc; }
+.status-bear { background-color: #842029; color: #f8d7da; border-color: #f5c2c7; }
+
+/* Custom Container Styling */
+div[data-testid="stVerticalBlock"] > div[style*="border-radius: 0.5rem"] {
+    background-color: #1e1e1e !important;
+    border-color: #333 !important;
+}
 </style>
 """, unsafe_allow_html=True)
 
 
 def main_page():
-    st.title("📈 CapitalSense Portfolio Terminal — India")
-    
     # =========================
     # STATE CLEARING (Risk Mitigation)
     # =========================
-    def on_ticker_change():
+    def on_input_change():
         if "calc_run" in st.session_state:
             del st.session_state["calc_run"]
         st.cache_data.clear()
+        
+    st.title("📈 CapitalSense Portfolio Terminal — India")
+    
+    st.markdown("Build, analyze, and optimize your actual holdings using quantitative engines.", unsafe_allow_html=True)
+    st.markdown("<br>", unsafe_allow_html=True)
     
     # =========================
-    # INPUTS
+    # INPUTS (Moved to Main Page)
     # =========================
-    st.sidebar.header("Portfolio Builder")
+    with st.container(border=True):
+        st.subheader("Holdings Input")
+        st.markdown("Enter your stock symbols (without `.NS`), quantities, and average buy price. The engine will automatically fetch the latest prices to compute your current portfolio weights.", unsafe_allow_html=True)
+        
+        col_start, _ = st.columns([1, 2])
+        with col_start:
+            start_date = st.date_input(
+                "Historical Engine Start Date",
+                pd.Timestamp("2023-01-01"),
+                on_change=on_input_change,
+                help="The date from which the engine calculates covariance and mean returns."
+            )
+
+        if 'holdings_df' not in st.session_state:
+            st.session_state.holdings_df = pd.DataFrame({
+                "Ticker": ["RELIANCE", "TCS", "HDFCBANK", "INFY"],
+                "Quantity": [10, 5, 20, 15],
+                "Avg Buy Price": [2500.0, 3500.0, 1500.0, 1400.0],
+                "Date": ["2023-01-15", "2023-02-20", "2023-03-10", "2023-04-05"]
+            })
+            on_input_change()
+
+        edited_df = st.data_editor(
+            st.session_state.holdings_df,
+            hide_index=True,
+            use_container_width=True,
+            num_rows="dynamic",
+            column_config={
+                "Ticker": st.column_config.TextColumn("Ticker (No .NS)", required=True),
+                "Quantity": st.column_config.NumberColumn("Quantity", min_value=0.01, required=True),
+                "Avg Buy Price": st.column_config.NumberColumn("Avg Buy Price (₹)", min_value=0.01, required=True),
+                "Date": st.column_config.DateColumn("Date (Optional)")
+            },
+            key="holdings_editor",
+            on_change=on_input_change
+        )
+        
+        st.session_state.holdings_df = edited_df
+
+    # Button below the container
+    calculate = st.button("Calculate Optimal Portfolio", type="primary", use_container_width=True)
     
-    tickers = st.sidebar.text_input(
-        "Tickers (NSE, use .NS suffix)",
-        "RELIANCE.NS,TCS.NS,HDFCBANK.NS,INFY.NS",
-        on_change=on_ticker_change
-    )
+    if calculate:
+        st.session_state.calc_run = True
+
+    if not st.session_state.get("calc_run", False):
+        st.info("Configure your portfolio and click 'Calculate Optimal Portfolio' to begin.")
+        st.stop()
+
+    # Extract cleaned tickers and append .NS
+    raw_tickers = edited_df["Ticker"].dropna().astype(str).tolist()
+    ticker_list = [t.strip().upper() + ".NS" for t in raw_tickers if t.strip()]
+    quantities = edited_df["Quantity"].dropna().values
     
-    ticker_list = [t.strip().upper() for t in tickers.split(",") if t.strip()]
-    
-    start_date = st.sidebar.date_input(
-        "Start Date",
-        pd.Timestamp("2023-01-01"),
-        on_change=on_ticker_change
-    )
-    
-    st.sidebar.subheader("Weights")
-    
-    if 'weight_df' not in st.session_state or set(st.session_state.weight_df['Ticker']) != set(ticker_list):
-        st.session_state.weight_df = pd.DataFrame({
-            "Ticker": ticker_list,
-            "Weight": [1.0/len(ticker_list)] * len(ticker_list)
-        })
-        on_ticker_change()
-    
-    if st.sidebar.button("Auto-Normalize to 100%"):
-        total = st.session_state.weight_df['Weight'].sum()
-        if total > 0:
-            st.session_state.weight_df['Weight'] = st.session_state.weight_df['Weight'] / total
-        on_ticker_change()
-    
-    edited_df = st.sidebar.data_editor(
-        st.session_state.weight_df,
-        hide_index=True,
-        use_container_width=True,
-        num_rows="dynamic",
-        column_config={
-            "Ticker": st.column_config.TextColumn("Ticker", disabled=False),
-            "Weight": st.column_config.NumberColumn("Weight", min_value=0.0, max_value=1.0, step=0.01, format="%.4f")
-        },
-        key="weight_editor"
-    )
-    
-    # Update list based on edits
-    st.session_state.weight_df = edited_df
-    ticker_list = edited_df['Ticker'].tolist()
-    weights = edited_df['Weight'].values
-    if weights.sum() == 0:
-        weights = np.ones(len(weights)) / len(weights)
-    else:
-        weights = weights / weights.sum()
-    
-    total_weight = edited_df['Weight'].sum()
-    st.sidebar.metric("Total Weight", f"{total_weight*100:.1f}%")
-    
-    if abs(total_weight - 1.0) > 0.01:
-        st.sidebar.warning("Weights do not sum to 100%. Please Auto-Normalize.")
-    
+    if len(ticker_list) == 0:
+        st.error("Please enter at least one valid ticker.")
+        st.stop()
+
     # =========================
     # CACHED FUNCTIONS
     # =========================
@@ -145,8 +157,8 @@ def main_page():
         valid_tickers = []
         failed_tickers = []
         ticker_data = {}
+        latest_prices = {}
         
-        # Try fetching each ticker gracefully (Data Fetch Failures Mitigation)
         for t in tickers:
             try:
                 df = yf.download(t, start=start, auto_adjust=True)["Close"]
@@ -155,6 +167,8 @@ def main_page():
                 else:
                     ticker_data[t] = df.squeeze()
                     valid_tickers.append(t)
+                    # Extract latest available price
+                    latest_prices[t] = ticker_data[t].iloc[-1]
             except Exception:
                 failed_tickers.append(t)
                 
@@ -173,7 +187,7 @@ def main_page():
         except:
             factor_prices = pd.DataFrame()
     
-        return data, spy, factor_prices, valid_tickers, failed_tickers
+        return data, spy, factor_prices, valid_tickers, failed_tickers, latest_prices
     
     @st.cache_data(ttl=3600)
     def fetch_dvm_scores(tickers):
@@ -181,7 +195,6 @@ def main_page():
         scores = {}
         if os.path.exists(db_path):
             try:
-                # Read-only mode mitigation
                 conn = sqlite3.connect(f"file:{db_path}?mode=ro", uri=True)
                 cursor = conn.cursor()
                 for t in tickers:
@@ -224,22 +237,12 @@ def main_page():
             constraints=constraints
         )
         return opt_result.x
-    
-    # =========================
-    # ACTION GATE
-    # =========================
-    if st.sidebar.button("Calculate Optimal Portfolio"):
-        st.session_state.calc_run = True
-    
-    if not st.session_state.get("calc_run", False):
-        st.info("Configure your portfolio and click 'Calculate Optimal Portfolio' to begin.")
-        st.stop()
-    
+
     # =========================
     # ENGINE EXECUTION
     # =========================
-    with st.spinner("Fetching market data and computing metrics..."):
-        data, spy, factor_prices, valid_tickers, failed_tickers = fetch_data(ticker_list, start_date)
+    with st.spinner("Fetching live market data and computing metrics..."):
+        data, spy, factor_prices, valid_tickers, failed_tickers, latest_prices = fetch_data(ticker_list, start_date)
     
     if failed_tickers:
         st.warning(f"Could not fetch data for: {', '.join(failed_tickers)}. They have been dropped from calculations.")
@@ -248,18 +251,29 @@ def main_page():
         st.error("No valid tickers to process.")
         st.stop()
     
-    # Align weights to valid tickers
-    valid_weights = []
+    # Align weights to valid tickers based on dynamic value
+    valid_values = []
     for t in valid_tickers:
         idx = ticker_list.index(t)
-        valid_weights.append(weights[idx])
-    valid_weights = np.array(valid_weights)
-    if valid_weights.sum() > 0:
-        valid_weights /= valid_weights.sum()
+        qty = quantities[idx]
+        current_price = latest_prices[t]
+        value = qty * current_price
+        valid_values.append(value)
+        
+    valid_values = np.array(valid_values)
+    total_market_value = valid_values.sum()
+    
+    if total_market_value > 0:
+        valid_weights = valid_values / total_market_value
     else:
         valid_weights = np.ones(len(valid_tickers)) / len(valid_tickers)
     
-    allocation = pd.DataFrame({"Ticker": valid_tickers, "Weight": valid_weights})
+    allocation = pd.DataFrame({
+        "Ticker": [t.replace('.NS', '') for t in valid_tickers], 
+        "Weight": valid_weights,
+        "Value (₹)": valid_values
+    })
+    
     returns = data.pct_change().dropna()
     portfolio_returns = returns.dot(valid_weights)
     cumulative = (1 + portfolio_returns).cumprod()
@@ -298,7 +312,11 @@ def main_page():
     # =========================
     # PHASE 2: UI/UX REDESIGN (FinTech Grid)
     # =========================
+    st.markdown("---")
     st.markdown("### Portfolio Vital Signs")
+    
+    # Total Value Hero Metric
+    st.markdown(f"<h2 style='color: #4C7766; text-align: center; margin-bottom: 2rem;'>Total Portfolio Value: ₹{total_market_value:,.2f}</h2>", unsafe_allow_html=True)
     
     # Top KPI Row
     col1, col2, col3, col4 = st.columns(4)
@@ -316,28 +334,30 @@ def main_page():
     col_left, col_right = st.columns([1, 2])
     
     with col_left:
-        st.markdown("#### Allocation")
-        fig_pie = px.pie(allocation, names="Ticker", values="Weight", hole=0.4)
-        fig_pie.update_layout(margin=dict(l=0, r=0, t=10, b=0), height=350, paper_bgcolor='rgba(0,0,0,0)', plot_bgcolor='rgba(0,0,0,0)')
-        st.plotly_chart(fig_pie, use_container_width=True)
-        
-        with st.expander("View Raw Weights"):
-            st.dataframe(allocation, use_container_width=True)
+        with st.container(border=True):
+            st.markdown("#### Allocation")
+            fig_pie = px.pie(allocation, names="Ticker", values="Weight", hole=0.4)
+            fig_pie.update_layout(margin=dict(l=0, r=0, t=10, b=0), height=350, paper_bgcolor='rgba(0,0,0,0)', plot_bgcolor='rgba(0,0,0,0)')
+            st.plotly_chart(fig_pie, use_container_width=True)
+            
+            with st.expander("View Allocation Details"):
+                st.dataframe(allocation, use_container_width=True, hide_index=True)
     
     with col_right:
-        st.markdown("#### Growth of ₹10,000")
-        fig_growth = go.Figure()
-        fig_growth.add_trace(go.Scatter(x=cumulative.index, y=cumulative * 10000, name="Current Portfolio"))
-        fig_growth.add_trace(go.Scatter(x=opt_cumulative.index, y=opt_cumulative * 10000, name="Optimized Portfolio (Max Sharpe)", line=dict(dash='dash')))
-        fig_growth.add_trace(go.Scatter(x=spy_cum.index, y=spy_cum * 10000, name="NIFTY 50 Benchmark"))
-        fig_growth.update_layout(margin=dict(l=0, r=0, t=10, b=0), height=350, paper_bgcolor='rgba(0,0,0,0)', plot_bgcolor='rgba(0,0,0,0)')
-        st.plotly_chart(fig_growth, use_container_width=True)
+        with st.container(border=True):
+            st.markdown("#### Growth of ₹10,000")
+            fig_growth = go.Figure()
+            fig_growth.add_trace(go.Scatter(x=cumulative.index, y=cumulative * 10000, name="Current Portfolio"))
+            fig_growth.add_trace(go.Scatter(x=opt_cumulative.index, y=opt_cumulative * 10000, name="Optimized Portfolio (Max Sharpe)", line=dict(dash='dash')))
+            fig_growth.add_trace(go.Scatter(x=spy_cum.index, y=spy_cum * 10000, name="NIFTY 50 Benchmark"))
+            fig_growth.update_layout(margin=dict(l=0, r=0, t=10, b=0), height=350, paper_bgcolor='rgba(0,0,0,0)', plot_bgcolor='rgba(0,0,0,0)')
+            st.plotly_chart(fig_growth, use_container_width=True)
     
 
 def guide_page():
     st.title("User Guide: Model Portfolio Terminal")
     st.markdown("""
-    Welcome to the Model Portfolio Terminal. This application uses quantitative optimization to help you build the most efficient portfolio possible.
+    Welcome to the Model Portfolio Terminal. This application uses quantitative optimization to help you build the most efficient portfolio possible based on your actual holdings.
     
     ### 🎯 Intended Outputs
     - **Optimized Weights:** The exact percentage allocation for each stock that mathematically maximizes your risk-adjusted return (Sharpe Ratio).
@@ -346,13 +366,13 @@ def guide_page():
     - **Efficient Frontier:** A visual plot showing the optimal balance between risk and reward.
     
     ### 📥 Required Inputs
-    - **Tickers:** Enter the NSE stock symbols separated by commas (e.g., RELIANCE.NS, TCS.NS). You MUST include .NS for Indian stocks.
+    - **Tickers:** Enter the raw NSE stock symbols (e.g., RELIANCE, TCS). The engine will automatically format them for the backend.
+    - **Quantity & Price:** Enter the number of shares you own and your average buy price. The app computes your actual current portfolio weights automatically based on live market prices.
     - **Start Date:** The historical date from which the engine calculates covariance and mean returns.
-    - **Current Weights:** You can manually edit the starting weights using the table in the sidebar. Click 'Auto-Normalize to 100%' if your manual weights don't sum perfectly.
     
     ### 💡 Best Practices
     - Always click **Calculate Optimal Portfolio** after changing inputs. The app intentionally does not auto-calculate on every keystroke to save your computational bandwidth.
-    - Compare the Current vs Optimized pie chart to see how far your manual allocation is from the mathematical ideal.
+    - Compare the Current vs Optimized pie chart to see how far your true holdings are from the mathematical ideal.
     """)
 
 pages = {
