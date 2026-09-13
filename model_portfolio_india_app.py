@@ -109,7 +109,7 @@ def main_page():
                 "Ticker": ["RELIANCE", "TCS", "HDFCBANK", "INFY"],
                 "Quantity": [10, 5, 20, 15],
                 "Avg Buy Price": [2500.0, 3500.0, 1500.0, 1400.0],
-                "Date": ["2023-01-15", "2023-02-20", "2023-03-10", "2023-04-05"]
+                "Date": pd.to_datetime(["2023-01-15", "2023-02-20", "2023-03-10", "2023-04-05"])
             })
             on_input_change()
 
