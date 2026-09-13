@@ -203,7 +203,8 @@ def main_page():
                 cursor = conn.cursor()
                 for t in tickers:
                     try:
-                        cursor.execute("SELECT Durability, Valuation, Momentum FROM scores WHERE Ticker=?", (t,))
+                        clean_ticker = t.replace('.NS', '')
+                        cursor.execute("SELECT Durability, Valuation, Momentum FROM scores WHERE Ticker=?", (clean_ticker,))
                         row = cursor.fetchone()
                         if row:
                             scores[t] = {"Durability": row[0], "Valuation": row[1], "Momentum": row[2]}
