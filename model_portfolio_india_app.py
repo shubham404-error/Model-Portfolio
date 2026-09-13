@@ -339,28 +339,28 @@ def guide_page():
     st.markdown("""
     Welcome to the Model Portfolio Terminal. This application uses quantitative optimization to help you build the most efficient portfolio possible.
     
-    ### ?? Intended Outputs
+    ### 🎯 Intended Outputs
     - **Optimized Weights:** The exact percentage allocation for each stock that mathematically maximizes your risk-adjusted return (Sharpe Ratio).
     - **CapitalSense DVM Score:** An aggregated proprietary score of your portfolio's Durability, Valuation, and Momentum.
     - **Expected Return & Volatility:** Forward-looking mathematical estimates of the portfolio's performance profile.
     - **Efficient Frontier:** A visual plot showing the optimal balance between risk and reward.
     
-    ### ?? Required Inputs
+    ### 📥 Required Inputs
     - **Tickers:** Enter the NSE stock symbols separated by commas (e.g., RELIANCE.NS, TCS.NS). You MUST include .NS for Indian stocks.
     - **Start Date:** The historical date from which the engine calculates covariance and mean returns.
     - **Current Weights:** You can manually edit the starting weights using the table in the sidebar. Click 'Auto-Normalize to 100%' if your manual weights don't sum perfectly.
     
-    ### ?? Best Practices
+    ### 💡 Best Practices
     - Always click **Calculate Optimal Portfolio** after changing inputs. The app intentionally does not auto-calculate on every keystroke to save your computational bandwidth.
     - Compare the Current vs Optimized pie chart to see how far your manual allocation is from the mathematical ideal.
     """)
 
 pages = {
     "Start": [
-        st.Page(guide_page, title="User Guide", icon="??", default=True)
+        st.Page(guide_page, title="User Guide", icon="📖", default=True)
     ],
     "Tools": [
-        st.Page(main_page, title="Portfolio Builder", icon="??")
+        st.Page(main_page, title="Portfolio Builder", icon="📈")
     ]
 }
 
