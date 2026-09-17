@@ -7,6 +7,7 @@ import plotly.graph_objects as go
 from scipy.optimize import minimize
 import sqlite3
 import os
+import config
 
 st.set_page_config(
     page_title="CapitalSense Portfolio Terminal",
@@ -106,10 +107,10 @@ def main_page():
 
         if 'holdings_df' not in st.session_state:
             st.session_state.holdings_df = pd.DataFrame({
-                "Ticker": ["RELIANCE", "TCS", "HDFCBANK", "INFY"],
-                "Quantity": [10, 5, 20, 15],
-                "Avg Buy Price": [2500.0, 3500.0, 1500.0, 1400.0],
-                "Date": pd.to_datetime(["2023-01-15", "2023-02-20", "2023-03-10", "2023-04-05"])
+                "Ticker": config.DEFAULT_TICKERS,
+                "Quantity": config.DEFAULT_QUANTITIES,
+                "Avg Buy Price": config.DEFAULT_BUY_PRICES,
+                "Date": pd.to_datetime(config.DEFAULT_DATES)
             })
             on_input_change()
 
@@ -195,7 +196,7 @@ def main_page():
     
     @st.cache_data(ttl=3600)
     def fetch_dvm_scores(tickers):
-        db_path = "data/capitalsense_dvm.sqlite"
+        db_path = config.DVM_DB_PATH
         scores = {}
         if os.path.exists(db_path):
             try:
@@ -216,12 +217,12 @@ def main_page():
         return scores
     
     @st.cache_data(ttl=3600)
-    def optimize_portfolio(returns_df, risk_free_rate=0.065):
-        mean_returns = returns_df.mean() * 252
-        cov_matrix = returns_df.cov() * 252
+    def optimize_portfolio(returns_df, risk_free_rate=config.RISK_FREE_RATE):
+        mean_returns = returns_df.mean() * config.TRADING_DAYS_PER_YEAR
+        cov_matrix = returns_df.cov() * config.TRADING_DAYS_PER_YEAR
         num_assets = len(returns_df.columns)
         
-        def portfolio_performance(weights, mean_returns, cov_matrix, risk_free_rate=0.065):
+        def portfolio_performance(weights, mean_returns, cov_matrix, risk_free_rate=config.RISK_FREE_RATE):
             ret = np.dot(weights, mean_returns)
             vol = np.sqrt(np.dot(weights.T, np.dot(cov_matrix, weights)))
             sharpe = (ret - risk_free_rate) / vol if vol > 0 else 0
@@ -231,7 +232,7 @@ def main_page():
             return -portfolio_performance(w, mean_returns, cov_matrix, risk_free_rate)[2]
             
         constraints = ({"type": "eq", "fun": lambda x: np.sum(x) - 1})
-        bounds = tuple((0, min(1.0, max(0.5, 1.0/num_assets + 0.2))) for _ in range(num_assets))
+        bounds = tuple((config.MIN_ASSET_WEIGHT, config.MAX_ASSET_WEIGHT) for _ in range(num_assets))
         init_guess = np.array([1/num_assets] * num_assets)
         
         opt_result = minimize(
@@ -283,7 +284,7 @@ def main_page():
     portfolio_returns = returns.dot(valid_weights)
     cumulative = (1 + portfolio_returns).cumprod()
     
-    opt_weights = optimize_portfolio(returns, risk_free_rate=0.065)
+    opt_weights = optimize_portfolio(returns, risk_free_rate=config.RISK_FREE_RATE)
     opt_returns = returns.dot(opt_weights)
     opt_cumulative = (1 + opt_returns).cumprod()
     
@@ -295,9 +296,9 @@ def main_page():
     spy_cum = (1 + spy_aligned).cumprod()
     
     # Core Metrics
-    annualized_portfolio_return = portfolio_returns.mean() * 252
-    annualized_volatility = portfolio_returns.std() * np.sqrt(252)
-    rf_rate = 0.065
+    annualized_portfolio_return = portfolio_returns.mean() * config.TRADING_DAYS_PER_YEAR
+    annualized_volatility = portfolio_returns.std() * np.sqrt(config.TRADING_DAYS_PER_YEAR)
+    rf_rate = config.RISK_FREE_RATE
     sharpe = (annualized_portfolio_return - rf_rate) / annualized_volatility if annualized_volatility > 0 else 0
     
     # CapitalSense DVM
